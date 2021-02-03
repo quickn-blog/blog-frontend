@@ -1,0 +1,15 @@
+{
+    auto_https off
+}
+
+localhost:80
+
+reverse_proxy /api/* localhost:8085 {
+    lb_policy header X-My-Header
+	header_up Host {http.reverse_proxy.upstream.hostport}
+}
+
+reverse_proxy /* localhost:8080 {
+    lb_policy header X-My-Header
+	header_up Host {http.reverse_proxy.upstream.hostport}
+}

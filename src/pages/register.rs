@@ -10,34 +10,35 @@ use crate::services::cookie::CookieService;
 use crate::api::*;
 use crate::services::router;
 
-pub struct LoginPage {
+pub struct RegisterPage {
     link: ComponentLink<Self>,
     username: String,
     password: String,
-    cookie: CookieService,
+    password_verify: String,
+    email: String,
+    nickname: String,
     error_link: WeakComponentLink<MatSnackbar>,
     error_msg: AccountError,
-    fetch_login: FetchState<ResponseBlock<LoginResponse>>,
-    fetch_info: FetchState<ResponseBlock<InfoResponse>>,
+    fetch_register: FetchState<ResponseBlock<RegisterResponse>>,
 }
 
 pub enum Msg {
     UpdateUsername(InputData),
     UpdatePassword(InputData),
-    GetLogin,
-    GetInfo,
-    ReceiveLoginResponse(FetchState<ResponseBlock<LoginResponse>>),
-    ReceiveInfoResponse(FetchState<ResponseBlock<InfoResponse>>),
+    UpdatePasswordVerify(InputData),
+    UpdateEmail(InputData),
+    UpdateNickname(InputData),
+    GetRegister,
+    ReceiveRegisterResponse(FetchState<ResponseBlock<RegisterResponse>>),
     ShowError,
-    GoMain,
-    GoRegister,
+    GoLogin,
 }
 
 #[derive(Properties, Clone)]
 pub struct Props {
 }
 
-impl Component for LoginPage {
+impl Component for RegisterPage {
     type Message = Msg;
     type Properties = Props;
 
@@ -46,11 +47,12 @@ impl Component for LoginPage {
             link,
             username: String::new(),
             password: String::new(),
-            cookie: CookieService::new(),
+            password_verify: String::new(),
+            email: String::new(),
+            nickname: String::new(),
             error_link: WeakComponentLink::default(),
             error_msg: AccountError::Nothing,
-            fetch_login: FetchState::NotFetching,
-            fetch_info: FetchState::NotFetching,
+            fetch_register: FetchState::NotFetching,
         }
     }
 
@@ -64,35 +66,35 @@ impl Component for LoginPage {
                 self.password = s.value;
                 false
             },
-            Msg::GetLogin => {
-                let form = LoginForm {
+            Msg::UpdatePasswordVerify(s) => {
+                self.password_verify = s.value;
+                false
+            },
+            Msg::UpdateEmail(s) => {
+                self.email = s.value;
+                false
+            },
+            Msg::UpdateNickname(s) => {
+                self.nickname = s.value;
+                false
+            },
+            Msg::GetRegister => {
+                let form = RegisterForm {
                     username: self.username.clone(),
+                    email: self.email.clone(),
+                    nickname: self.nickname.clone(),
                     pass: self.password.clone(),
                 };
                 let future = async move {
-                    match login(form).await {
-                        Ok(info) => Msg::ReceiveLoginResponse(FetchState::Success(info)),
-                        Err(_) => Msg::ReceiveLoginResponse(FetchState::Failed(FetchError::from(JsValue::FALSE))),
+                    match register(form).await {
+                        Ok(info) => Msg::ReceiveRegisterResponse(FetchState::Success(info)),
+                        Err(_) => Msg::ReceiveRegisterResponse(FetchState::Failed(FetchError::from(JsValue::FALSE))),
                     }
                 };
                 send_future(self.link.clone(), future);
                 false
             },
-            Msg::GetInfo => {
-                let future = async move {
-                    match get_info().await {
-                        Ok(info) => Msg::ReceiveInfoResponse(FetchState::Success(info)),
-                        Err(_) => Msg::ReceiveInfoResponse(FetchState::Failed(FetchError::from(JsValue::FALSE))), // TODO
-                    }
-                };
-                send_future(self.link.clone(), future);
-                false
-            },
-            Msg::ReceiveInfoResponse(data) => {
-                self.fetch_info = data;
-                true
-            },
-            Msg::ReceiveLoginResponse(data) => {
+            Msg::ReceiveRegisterResponse(data) => {
                 if let FetchState::Success(resp) = data.clone() {
                     if let Some(body) = resp.body {
                         match body.result {
@@ -103,22 +105,16 @@ impl Component for LoginPage {
                         self.error_msg = AccountError::NetworkError;
                     }
                 }
-                self.fetch_login = data;
+                self.fetch_register = data;
                 true
             },
             Msg::ShowError => {
                 self.error_link.show();
                 false
             },
-            Msg::GoMain => {
+            Msg::GoLogin => {
                 let mut router = RouteAgentDispatcher::<()>::new();
-                let route = Route::from(router::MainRoute::Main);
-                router.send(RouteRequest::ChangeRoute(route));
-                false
-            },
-            Msg::GoRegister => {
-                let mut router = RouteAgentDispatcher::<()>::new();
-                let route = Route::from(router::MainRoute::Register);
+                let route = Route::from(router::MainRoute::Login);
                 router.send(RouteRequest::ChangeRoute(route));
                 false
             },
@@ -133,19 +129,23 @@ impl Component for LoginPage {
     }
 
     fn view(&self) -> Html {
-        if let FetchState::Success(r) = self.fetch_info.clone() {
-            if r.status {
-                self.link.send_message(Msg::GoMain);
+        let link = self.link.clone();
+        let validity_transform = MatTextField::validity_transform(move |s, _| {
+            let mut state = ValidityState::new();
+            let comp = link.get_component().unwrap();
+            let pass = comp.password.clone();
+            if s == pass {
+                state.set_valid(true).set_bad_input(false);
+            } else {
+                state.set_valid(false).set_bad_input(true);
             }
-        } else if let FetchState::NotFetching = self.fetch_info.clone() {
-            self.link.send_message(Msg::GetInfo);
-        }
-        if let FetchState::Success(resp) = self.fetch_login.clone() {
+            state
+        });
+        if let FetchState::Success(resp) = self.fetch_register.clone() {
             if let Some(body) = resp.body {
                 match body.result {
                     AccountError::Nothing => {
-                        self.cookie.set("token", &body.token.unwrap());
-                        self.link.send_message(Msg::GoMain);
+                        self.link.send_message(Msg::GoLogin);
                     },
                     _ => { self.link.send_message(Msg::ShowError) },
                 }
@@ -155,10 +155,10 @@ impl Component for LoginPage {
         }
         html!{
             <div class="container">
-                <MatSnackbar label_text=&format!("Failed to login: {}", self.error_msg) snackbar_link=self.error_link.clone()/>
+                <MatSnackbar label_text=&format!("Failed to register: {}", self.error_msg) snackbar_link=self.error_link.clone()/>
                 <div class="form">
                     <div class="field">
-                        <h3>{"Login to ANEP Research"}</h3>
+                        <h3>{"Register to ANEP Research"}</h3>
                     </div>
                     <div class="field">
                         <MatFormfield>
@@ -171,10 +171,22 @@ impl Component for LoginPage {
                         </MatFormfield>
                     </div>
                     <div class="field">
-                        {"Haven't an account? "}<router::MainRouterAnchor route=router::MainRoute::Register>{"click here"}</router::MainRouterAnchor>
+                        <MatFormfield>
+                            <MatTextField outlined=true icon="check_circle" label="Password Verify" auto_validate=true validation_message="Sorry, try again" validity_transform=validity_transform.clone() value=self.password_verify.clone() field_type=TextFieldType::Password oninput=self.link.callback(|s| Msg::UpdatePasswordVerify(s))/>
+                        </MatFormfield>
                     </div>
                     <div class="field">
-                        <div onclick=self.link.callback(|_| Msg::GetLogin)><MatButton label="Sumbit"/></div>
+                        <MatFormfield>
+                            <MatTextField outlined=true icon="email" label="Email" auto_validate=true value=self.email.clone() field_type=TextFieldType::Email oninput=self.link.callback(|s| Msg::UpdateEmail(s))/>
+                        </MatFormfield>
+                    </div>
+                    <div class="field">
+                        <MatFormfield>
+                            <MatTextField outlined=true icon="badge" label="Nickname" value=self.nickname.clone() oninput=self.link.callback(|s| Msg::UpdateNickname(s))/>
+                        </MatFormfield>
+                    </div>
+                    <div class="field">
+                        <div onclick=self.link.callback(|_| Msg::GetRegister)><MatButton label="Sumbit"/></div>
                     </div>
                 </div>
             </div>

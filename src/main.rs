@@ -27,6 +27,7 @@ use yew_material::top_app_bar_fixed::*;
 use yew_material::list::*;
 use yew_material::drawer::*;
 use serde::{Serialize, Deserialize};
+use wasm_bindgen::prelude::*;
 use services::{router, cookie};
 use api::*;
 
@@ -35,7 +36,6 @@ struct Root {
     is_opened: bool,
     cookie: cookie::CookieService,
     fetch_task: FetchState<ResponseBlock<InfoResponse>>,
-    info: Option<InfoResponse>,
 }
 
 enum Msg {
@@ -43,6 +43,7 @@ enum Msg {
     GetOpen,
     GetClose,
     GetInfo,
+    GetLogout,
     ReceiveInfo(FetchState<ResponseBlock<InfoResponse>>),
 }
 
@@ -56,7 +57,6 @@ impl Component for Root {
             is_opened: false,
             cookie: cookie::CookieService::new(),
             fetch_task: FetchState::NotFetching,
-            info: None,
         }
     }
 
@@ -75,27 +75,24 @@ impl Component for Root {
                 true
             }
             Msg::GetInfo => {
-                let cookie = self.cookie;
                 let future = async move {
-                    let client = reqwest::Client::new();
-                    let res = client
-                        .get(&format!("http://localhost/api/account_service/info?token={}", cookie.get("token").unwrap_or(String::new())))
-                        .send()
-                        .await
-                        .unwrap();
-                    let text = res.text().await.unwrap();
-                    let info: ResponseBlock<InfoResponse> = serde_json::from_str(&text).unwrap();
-                    Msg::ReceiveInfo(FetchState::Success(info))
+                    match get_info().await {
+                        Ok(info) => Msg::ReceiveInfo(FetchState::Success(info)),
+                        Err(_) => Msg::ReceiveInfo(FetchState::Failed(FetchError::from(JsValue::FALSE))), // TODO
+                    }
                 };
                 send_future(self.link.clone(), future);
                 false
             },
             Msg::ReceiveInfo(data) => {
-                if let FetchState::Success(r) = data.clone() {
-                    self.info = r.body;
-                }
                 self.fetch_task = data;
                 true
+            },
+            Msg::GetLogout => {
+                self.cookie.remove("token");
+                self.fetch_task = FetchState::NotFetching;
+                self.link.send_message(Msg::GetInfo);
+                false
             },
             _ => {
                 false
@@ -122,7 +119,6 @@ impl Component for Root {
             }
             (false, String::new())
         };
-        let info = self.info.clone();
         html! {
             <MatDrawer open=self.is_opened drawer_type="modal" onopened=self.link.callback(|_| Msg::GetOpen) onclosed=self.link.callback(|_| Msg::GetClose)>
                 <div class="drawer-content">
@@ -139,6 +135,19 @@ impl Component for Root {
                     <div class="navigate-menu">
                         <MatList>
                             <router::MainRouterAnchor route=router::MainRoute::Main><MatListItem>{"Home"}</MatListItem></router::MainRouterAnchor>
+                            <li divider=true></li>
+                            {
+                                if is_logined {
+                                    html! { <router::MainRouterAnchor route=router::MainRoute::Dashboard><MatListItem>{"Dashboard"}</MatListItem></router::MainRouterAnchor> }
+                                } else {
+                                    html! {
+                                        <>
+                                            <router::MainRouterAnchor route=router::MainRoute::Login><MatListItem>{"Login"}</MatListItem></router::MainRouterAnchor>
+                                            <router::MainRouterAnchor route=router::MainRoute::Register><MatListItem>{"Register"}</MatListItem></router::MainRouterAnchor>
+                                        </>
+                                    }
+                                }
+                            }
                         </MatList>
                     </div>
                 </div>
@@ -153,24 +162,29 @@ impl Component for Root {
                         <MatTopAppBarActionItems>
                             {
                                 if is_logined {
-                                    html! { <MatIconButton icon="user"/> }
+                                    html! { <div class="fix-link"><span onclick=self.link.callback(|_| Msg::GetLogout)><MatIconButton icon="logout"/></span></div> }
                                 } else {
-                                    html! { <router::MainRouterAnchor route=router::MainRoute::Login><MatIconButton icon="login"/></router::MainRouterAnchor> }
+                                    html! { <div class="fix-link"><router::MainRouterAnchor route=router::MainRoute::Login><MatIconButton icon="login"/></router::MainRouterAnchor></div> }
                                 }
                             }
                         </MatTopAppBarActionItems>
                     </MatTopAppBarFixed>
                     <main id="router-outlet">
-                        <router::MainRouter render=router::MainRouter::render(|switch: router::MainRoute| {
-                            match switch {
-                                router::MainRoute::Main => html!{ <pages::main::Main/> },
-                                router::MainRoute::Login => html!{ <pages::login::LoginPage info=None/> },
-                                _ => html!{{"test"}}
-                            }
-                        })/>
+                        <router::MainRouter render=router::MainRouter::render(Self::switch)/>
                     </main>
                 </MatDrawerAppContent>
             </MatDrawer>
+        }
+    }
+}
+
+impl Root {
+    fn switch(route: router::MainRoute) -> Html {
+        match route {
+            router::MainRoute::Main => html!{ <pages::main::Main/> },
+            router::MainRoute::Login => html!{ <pages::login::LoginPage/> },
+            router::MainRoute::Register => html!{ <pages::register::RegisterPage/> },
+            _ => html!{{"test"}}
         }
     }
 }

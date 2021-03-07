@@ -1,11 +1,12 @@
-use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::spawn_local;
-use std::fmt::{Error, Formatter};
-use std::future::Future;
-use yew::prelude::*;
+use crate::services::cookie::CookieService;
+use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use crate::services::cookie::CookieService;
+use std::fmt::{Error, Formatter};
+use std::future::Future;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::spawn_local;
+use yew::prelude::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FetchError {
@@ -19,7 +20,6 @@ impl std::fmt::Display for FetchError {
 }
 
 impl std::error::Error for FetchError {}
-
 
 impl From<JsValue> for FetchError {
     fn from(value: JsValue) -> Self {
@@ -44,6 +44,7 @@ pub enum AccountError {
     UsernameAlreadyExists,
     EmailAlreadyExists,
     NetworkError,
+    PasswordVerifyFailed,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -74,6 +75,9 @@ impl fmt::Display for AccountError {
             AccountError::DatabaseError => write!(f, "Some database error occurs."),
             AccountError::UserNotExists => write!(f, "Your user not exists."),
             AccountError::PassNotMatched => write!(f, "Your password is not matched."),
+            AccountError::PasswordVerifyFailed => {
+                write!(f, "Please re-check your password in the verify field.")
+            }
             _ => write!(f, "Nothing."),
         }
     }
@@ -112,6 +116,72 @@ pub struct RegisterResponse {
     pub result: AccountError,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
+pub enum BlogError {
+    Nothing,
+    AuthError,
+    DatabaseError,
+    NetworkError,
+    PermissionError,
+}
+
+impl fmt::Display for BlogError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            BlogError::AuthError => write!(f, "Some account verify error occurs."),
+            BlogError::NetworkError => write!(f, "Some network error occurs."),
+            BlogError::DatabaseError => write!(f, "Some database error occurs."),
+            BlogError::PermissionError => write!(f, "You have not permission."),
+            _ => write!(f, "Nothing."),
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct AsRequest<T> {
+    pub token: String,
+    pub body: T,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+pub struct NewPostForm {
+    pub title: String,
+    pub body: String,
+    pub tag: Vec<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+pub struct ViewPostForm {
+    pub id: i64,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct NewPostResponse {
+    pub error: BlogError,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct CountPostsResponse {
+    pub error: BlogError,
+    pub count: i64,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct PublicPost {
+    pub title: String,
+    pub body: String,
+    pub author: i32,
+    pub tags: Vec<String>,
+    pub created_at: NaiveDateTime,
+    pub modified_at: NaiveDateTime,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ViewPostResponse {
+    pub error: BlogError,
+    pub post: Option<PublicPost>,
+}
+
 pub fn send_future<COMP: Component, F>(link: ComponentLink<COMP>, future: F)
 where
     F: Future<Output = COMP::Message> + 'static,
@@ -133,7 +203,9 @@ pub async fn login(form: LoginForm) -> Result<ResponseBlock<LoginResponse>, anyh
     Ok(info)
 }
 
-pub async fn register(form: RegisterForm) -> Result<ResponseBlock<RegisterResponse>, anyhow::Error> {
+pub async fn register(
+    form: RegisterForm,
+) -> Result<ResponseBlock<RegisterResponse>, anyhow::Error> {
     let client = reqwest::Client::new();
     let res = client
         .post("http://localhost/api/account_service/register")
@@ -149,10 +221,72 @@ pub async fn get_info() -> Result<ResponseBlock<InfoResponse>, anyhow::Error> {
     let cookie = CookieService::new();
     let client = reqwest::Client::new();
     let res = client
-        .get(&format!("http://localhost/api/account_service/info?token={}", cookie.get("token").unwrap_or(String::new())))
+        .get(&format!(
+            "http://localhost/api/account_service/info?token={}",
+            cookie.get("token").unwrap_or(String::new())
+        ))
         .send()
         .await?;
     let text = res.text().await?;
     let info: ResponseBlock<InfoResponse> = serde_json::from_str(&text).unwrap();
+    Ok(info)
+}
+
+pub async fn get_info_by_pk(pk: i32) -> Result<ResponseBlock<InfoResponse>, anyhow::Error> {
+    let client = reqwest::Client::new();
+    let res = client
+        .get(&format!(
+            "http://localhost/api/account_service/get_user?pk={}",
+            pk
+        ))
+        .send()
+        .await?;
+    let text = res.text().await?;
+    let info: ResponseBlock<InfoResponse> = serde_json::from_str(&text).unwrap();
+    Ok(info)
+}
+
+pub async fn get_post_counts() -> Result<ResponseBlock<CountPostsResponse>, anyhow::Error> {
+    let client = reqwest::Client::new();
+    let res = client
+        .get("http://localhost/api/blog/count_posts")
+        .send()
+        .await?;
+    let text = res.text().await?;
+    let info: ResponseBlock<CountPostsResponse> = serde_json::from_str(&text).unwrap();
+    Ok(info)
+}
+
+pub async fn view_post(id: i64) -> Result<ResponseBlock<ViewPostResponse>, anyhow::Error> {
+    let cookie = CookieService::new();
+    let client = reqwest::Client::new();
+    let form = AsRequest {
+        token: cookie.get("token").unwrap_or(String::new()),
+        body: ViewPostForm { id },
+    };
+    let res = client
+        .post("http://localhost/api/blog/view_post")
+        .json(&form)
+        .send()
+        .await?;
+    let text = res.text().await?;
+    let info: ResponseBlock<ViewPostResponse> = serde_json::from_str(&text).unwrap();
+    Ok(info)
+}
+
+pub async fn new_post(block: NewPostForm) -> Result<ResponseBlock<NewPostResponse>, anyhow::Error> {
+    let cookie = CookieService::new();
+    let client = reqwest::Client::new();
+    let form = AsRequest {
+        token: cookie.get("token").unwrap_or(String::new()),
+        body: block,
+    };
+    let res = client
+        .post("http://localhost/api/blog/new_post")
+        .json(&form)
+        .send()
+        .await?;
+    let text = res.text().await?;
+    let info: ResponseBlock<NewPostResponse> = serde_json::from_str(&text).unwrap();
     Ok(info)
 }

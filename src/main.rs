@@ -2,13 +2,13 @@
 extern crate yew;
 #[macro_use]
 extern crate yew_router;
-extern crate yew_services;
-extern crate yew_material;
+extern crate reqwest;
+extern crate serde;
 extern crate wasm_bindgen;
 extern crate wasm_bindgen_futures;
-extern crate reqwest;
 extern crate web_sys;
-extern crate serde;
+extern crate yew_material;
+extern crate yew_services;
 #[macro_use]
 extern crate serde_json;
 extern crate anyhow;
@@ -16,26 +16,32 @@ extern crate anyhow;
 extern crate log;
 extern crate wasm_logger;
 
-mod services;
-mod pages;
 mod api;
+mod constants;
+mod pages;
+mod services;
 
-use yew_services::fetch::{Request, Response, FetchService, FetchTask, FetchOptions, Mode};
-use yew::{format::{Json, Nothing}, prelude::*};
-use yew_material::{MatList, MatButton, MatTopAppBarFixed, MatIconButton};
-use yew_material::top_app_bar_fixed::*;
-use yew_material::list::*;
-use yew_material::drawer::*;
-use serde::{Serialize, Deserialize};
-use wasm_bindgen::prelude::*;
-use services::{router, cookie};
 use api::*;
+use serde::{Deserialize, Serialize};
+use services::{cookie, router};
+use wasm_bindgen::prelude::*;
+use yew::{
+    format::{Json, Nothing},
+    prelude::*,
+};
+use yew_material::drawer::*;
+use yew_material::list::*;
+use yew_material::text_inputs::*;
+use yew_material::top_app_bar_fixed::*;
+use yew_material::{MatButton, MatIcon, MatIconButton, MatList, MatTopAppBarFixed};
+use yew_services::fetch::{FetchOptions, FetchService, FetchTask, Mode, Request, Response};
 
 struct Root {
     link: ComponentLink<Self>,
     is_opened: bool,
     cookie: cookie::CookieService,
     fetch_task: FetchState<ResponseBlock<InfoResponse>>,
+    search_text: String,
 }
 
 enum Msg {
@@ -45,6 +51,7 @@ enum Msg {
     GetInfo,
     GetLogout,
     ReceiveInfo(FetchState<ResponseBlock<InfoResponse>>),
+    UpdateSearchText(InputData),
 }
 
 impl Component for Root {
@@ -57,6 +64,7 @@ impl Component for Root {
             is_opened: false,
             cookie: cookie::CookieService::new(),
             fetch_task: FetchState::NotFetching,
+            search_text: String::new(),
         }
     }
 
@@ -65,11 +73,11 @@ impl Component for Root {
             Msg::GetOpen => {
                 self.is_opened = true;
                 true
-            },
+            }
             Msg::GetClose => {
                 self.is_opened = false;
                 true
-            },
+            }
             Msg::GetNavIconClick => {
                 self.is_opened ^= true;
                 true
@@ -78,25 +86,29 @@ impl Component for Root {
                 let future = async move {
                     match get_info().await {
                         Ok(info) => Msg::ReceiveInfo(FetchState::Success(info)),
-                        Err(_) => Msg::ReceiveInfo(FetchState::Failed(FetchError::from(JsValue::FALSE))), // TODO
+                        Err(_) => {
+                            Msg::ReceiveInfo(FetchState::Failed(FetchError::from(JsValue::FALSE)))
+                        } // TODO
                     }
                 };
                 send_future(self.link.clone(), future);
                 false
-            },
+            }
             Msg::ReceiveInfo(data) => {
                 self.fetch_task = data;
                 true
-            },
+            }
             Msg::GetLogout => {
                 self.cookie.remove("token");
                 self.fetch_task = FetchState::NotFetching;
                 self.link.send_message(Msg::GetInfo);
                 false
-            },
-            _ => {
+            }
+            Msg::UpdateSearchText(data) => {
+                self.search_text = data.value;
                 false
             }
+            _ => false,
         }
     }
 
@@ -113,8 +125,7 @@ impl Component for Root {
             }
         } else {
             match self.fetch_task {
-                FetchState::NotFetching =>
-                self.link.send_message(Msg::GetInfo),
+                FetchState::NotFetching => self.link.send_message(Msg::GetInfo),
                 _ => {}
             }
             (false, String::new())
@@ -134,16 +145,21 @@ impl Component for Root {
                     </div>
                     <div class="navigate-menu">
                         <MatList>
-                            <router::MainRouterAnchor route=router::MainRoute::Main><MatListItem>{"Home"}</MatListItem></router::MainRouterAnchor>
+                            <router::MainRouterAnchor route=router::MainRoute::Main><MatListItem graphic=GraphicType::Icon>{"Home"}<mwc-icon slot="graphic">{"home"}</mwc-icon></MatListItem></router::MainRouterAnchor>
                             <li divider=true></li>
                             {
                                 if is_logined {
-                                    html! { <router::MainRouterAnchor route=router::MainRoute::Dashboard><MatListItem>{"Dashboard"}</MatListItem></router::MainRouterAnchor> }
+                                    html! {
+                                        <>
+                                            <router::MainRouterAnchor route=router::MainRoute::Dashboard><MatListItem graphic=GraphicType::Icon>{"Dashboard"}<mwc-icon slot="graphic">{"dashboard"}</mwc-icon></MatListItem></router::MainRouterAnchor>
+                                            <span onclick=self.link.callback(|_| Msg::GetLogout)><MatListItem graphic=GraphicType::Icon>{"Log-out"} <mwc-icon slot="graphic">{"logout"}</mwc-icon></MatListItem></span>
+                                        </>
+                                    }
                                 } else {
                                     html! {
                                         <>
-                                            <router::MainRouterAnchor route=router::MainRoute::Login><MatListItem>{"Login"}</MatListItem></router::MainRouterAnchor>
-                                            <router::MainRouterAnchor route=router::MainRoute::Register><MatListItem>{"Register"}</MatListItem></router::MainRouterAnchor>
+                                            <router::MainRouterAnchor route=router::MainRoute::Login><MatListItem graphic=GraphicType::Icon>{"Login"}<mwc-icon slot="graphic">{"login"}</mwc-icon></MatListItem></router::MainRouterAnchor>
+                                            <router::MainRouterAnchor route=router::MainRoute::Register><MatListItem graphic=GraphicType::Icon>{"Register"}<mwc-icon slot="graphic">{"person_add"}</mwc-icon></MatListItem></router::MainRouterAnchor>
                                         </>
                                     }
                                 }
@@ -160,6 +176,8 @@ impl Component for Root {
                             {"ANEP Research"}
                         </MatTopAppBarTitle>
                         <MatTopAppBarActionItems>
+                            <MatTextField value=self.search_text.clone() placeholder="Search.." icon="search" oninput=self.link.callback(|data| Msg::UpdateSearchText(data))/>
+                            <div class="fix-link"><router::MainRouterAnchor route=router::MainRoute::NewPost><MatIconButton icon="add_circle"/></router::MainRouterAnchor></div>
                             {
                                 if is_logined {
                                     html! { <div class="fix-link"><span onclick=self.link.callback(|_| Msg::GetLogout)><MatIconButton icon="logout"/></span></div> }
@@ -181,10 +199,12 @@ impl Component for Root {
 impl Root {
     fn switch(route: router::MainRoute) -> Html {
         match route {
-            router::MainRoute::Main => html!{ <pages::main::Main/> },
-            router::MainRoute::Login => html!{ <pages::login::LoginPage/> },
-            router::MainRoute::Register => html!{ <pages::register::RegisterPage/> },
-            _ => html!{{"test"}}
+            router::MainRoute::Main => html! { <pages::main::Main/> },
+            router::MainRoute::Login => html! { <pages::login::LoginPage/> },
+            router::MainRoute::Register => html! { <pages::register::RegisterPage/> },
+            router::MainRoute::NewPost => html! { <pages::new_post::NewPostPage/> },
+            router::MainRoute::ViewPost(id) => html! { <pages::view_post::ViewPost id=id/> },
+            _ => html! {{"test"}},
         }
     }
 }

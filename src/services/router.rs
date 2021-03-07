@@ -11,8 +11,10 @@ pub enum MainRoute {
     Register,
     #[to = "/accounts/dashboard"]
     Dashboard,
-    #[to = "/posts/{id}"]
-    ViewPost(u32),
+    #[to = "/view_post/{id}"]
+    ViewPost(i64),
+    #[to = "/new_post"]
+    NewPost,
     #[to = "/"]
     Main,
 }

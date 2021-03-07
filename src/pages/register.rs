@@ -1,14 +1,17 @@
-use yew::{format::{Json, Nothing}, prelude::*};
-use yew_material::{MatSnackbar, MatFormfield, MatTextField, MatButton, WeakComponentLink};
-use yew_material::text_inputs::*;
-use yew_router::prelude::*;
-use yew_router::agent::RouteRequest;
-use serde::{Serialize, Deserialize};
+use crate::api::*;
+use crate::services::cookie::CookieService;
+use crate::services::router;
+use serde::{Deserialize, Serialize};
 use serde_json::to_string;
 use wasm_bindgen::prelude::*;
-use crate::services::cookie::CookieService;
-use crate::api::*;
-use crate::services::router;
+use yew::{
+    format::{Json, Nothing},
+    prelude::*,
+};
+use yew_material::text_inputs::*;
+use yew_material::{MatButton, MatFormfield, MatSnackbar, MatTextField, WeakComponentLink};
+use yew_router::agent::RouteRequest;
+use yew_router::prelude::*;
 
 pub struct RegisterPage {
     link: ComponentLink<Self>,
@@ -35,8 +38,7 @@ pub enum Msg {
 }
 
 #[derive(Properties, Clone)]
-pub struct Props {
-}
+pub struct Props {}
 
 impl Component for RegisterPage {
     type Message = Msg;
@@ -61,45 +63,54 @@ impl Component for RegisterPage {
             Msg::UpdateUsername(s) => {
                 self.username = s.value;
                 false
-            },
+            }
             Msg::UpdatePassword(s) => {
                 self.password = s.value;
                 false
-            },
+            }
             Msg::UpdatePasswordVerify(s) => {
                 self.password_verify = s.value;
                 false
-            },
+            }
             Msg::UpdateEmail(s) => {
                 self.email = s.value;
                 false
-            },
+            }
             Msg::UpdateNickname(s) => {
                 self.nickname = s.value;
                 false
-            },
+            }
             Msg::GetRegister => {
-                let form = RegisterForm {
-                    username: self.username.clone(),
-                    email: self.email.clone(),
-                    nickname: self.nickname.clone(),
-                    pass: self.password.clone(),
-                };
-                let future = async move {
-                    match register(form).await {
-                        Ok(info) => Msg::ReceiveRegisterResponse(FetchState::Success(info)),
-                        Err(_) => Msg::ReceiveRegisterResponse(FetchState::Failed(FetchError::from(JsValue::FALSE))),
-                    }
-                };
-                send_future(self.link.clone(), future);
-                false
-            },
+                if self.password.clone() != self.password_verify.clone() {
+                    self.error_msg = AccountError::PasswordVerifyFailed;
+                    true
+                } else {
+                    let form = RegisterForm {
+                        username: self.username.clone(),
+                        email: self.email.clone(),
+                        nickname: self.nickname.clone(),
+                        pass: self.password.clone(),
+                    };
+                    let future = async move {
+                        match register(form).await {
+                            Ok(info) => Msg::ReceiveRegisterResponse(FetchState::Success(info)),
+                            Err(_) => Msg::ReceiveRegisterResponse(FetchState::Failed(
+                                FetchError::from(JsValue::FALSE),
+                            )),
+                        }
+                    };
+                    send_future(self.link.clone(), future);
+                    false
+                }
+            }
             Msg::ReceiveRegisterResponse(data) => {
                 if let FetchState::Success(resp) = data.clone() {
                     if let Some(body) = resp.body {
                         match body.result {
-                            AccountError::Nothing => {},
-                            _ => { self.error_msg = body.result; },
+                            AccountError::Nothing => {}
+                            _ => {
+                                self.error_msg = body.result;
+                            }
                         }
                     } else {
                         self.error_msg = AccountError::NetworkError;
@@ -107,20 +118,18 @@ impl Component for RegisterPage {
                 }
                 self.fetch_register = data;
                 true
-            },
+            }
             Msg::ShowError => {
                 self.error_link.show();
                 false
-            },
+            }
             Msg::GoLogin => {
                 let mut router = RouteAgentDispatcher::<()>::new();
                 let route = Route::from(router::MainRoute::Login);
                 router.send(RouteRequest::ChangeRoute(route));
                 false
-            },
-            _ => {
-                false
             }
+            _ => false,
         }
     }
 
@@ -141,19 +150,24 @@ impl Component for RegisterPage {
             }
             state
         });
+        if AccountError::PasswordVerifyFailed == self.error_msg {
+            self.link.send_message(Msg::ShowError);
+        }
         if let FetchState::Success(resp) = self.fetch_register.clone() {
             if let Some(body) = resp.body {
                 match body.result {
                     AccountError::Nothing => {
                         self.link.send_message(Msg::GoLogin);
-                    },
-                    _ => { self.link.send_message(Msg::ShowError) },
+                    }
+                    _ => {
+                        self.link.send_message(Msg::ShowError);
+                    }
                 }
             } else {
-                self.link.send_message(Msg::ShowError)
+                self.link.send_message(Msg::ShowError);
             }
         }
-        html!{
+        html! {
             <div class="container">
                 <MatSnackbar label_text=&format!("Failed to register: {}", self.error_msg) snackbar_link=self.error_link.clone()/>
                 <div class="form">
@@ -186,7 +200,7 @@ impl Component for RegisterPage {
                         </MatFormfield>
                     </div>
                     <div class="field">
-                        <div onclick=self.link.callback(|_| Msg::GetRegister)><MatButton label="Sumbit"/></div>
+                        <div onclick=self.link.callback(|_| Msg::GetRegister)><MatButton raised=true label="Sumbit"/></div>
                     </div>
                 </div>
             </div>

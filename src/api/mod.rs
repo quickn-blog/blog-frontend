@@ -1,3 +1,4 @@
+use crate::constants::*;
 use crate::services::cookie::CookieService;
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -7,7 +8,6 @@ use std::future::Future;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
-use crate::constants::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FetchError {
@@ -297,7 +297,10 @@ pub async fn get_post_counts() -> Result<ResponseBlock<CountPostsResponse>, anyh
 pub async fn recent_posts() -> Result<ResponseBlock<RecentPostsResponse>, anyhow::Error> {
     let client = reqwest::Client::new();
     let res = client
-        .get(&format!("http://localhost/api/blog/recent_posts?count={}", MAX_NUMBER_OF_POSTS_PREVIEW))
+        .get(&format!(
+            "http://localhost/api/blog/recent_posts?count={}",
+            MAX_NUMBER_OF_POSTS_PREVIEW
+        ))
         .send()
         .await?;
     let text = res.text().await?;
@@ -339,7 +342,9 @@ pub async fn new_post(block: NewPostForm) -> Result<ResponseBlock<NewPostRespons
     Ok(info)
 }
 
-pub async fn edit_post(block: EditPostForm) -> Result<ResponseBlock<EditPostResponse>, anyhow::Error> {
+pub async fn edit_post(
+    block: EditPostForm,
+) -> Result<ResponseBlock<EditPostResponse>, anyhow::Error> {
     let cookie = CookieService::new();
     let client = reqwest::Client::new();
     let form = AsRequest {

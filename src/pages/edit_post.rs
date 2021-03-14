@@ -128,14 +128,14 @@ impl Component for EditPost {
                 let future = async move {
                     match view_post(id).await {
                         Ok(info) => Msg::ReceiveViewPostResponse(FetchState::Success(info)),
-                        Err(_) => Msg::ReceiveViewPostResponse(FetchState::Failed(FetchError::from(
-                            JsValue::FALSE,
-                        ))),
+                        Err(_) => Msg::ReceiveViewPostResponse(FetchState::Failed(
+                            FetchError::from(JsValue::FALSE),
+                        )),
                     }
                 };
                 send_future(self.link.clone(), future);
                 false
-            },
+            }
             Msg::ReceiveInfoResponse(data) => {
                 self.fetch_info = data;
                 true

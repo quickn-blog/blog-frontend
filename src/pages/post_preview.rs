@@ -26,7 +26,7 @@ pub enum Msg {
     GetPreview,
     GetInfo(i32),
     ReceiveViewResponse(FetchState<ResponseBlock<ViewPostResponse>>),
-    ReceiveInfoResponse(FetchState<ResponseBlock<InfoResponse>>)
+    ReceiveInfoResponse(FetchState<ResponseBlock<InfoResponse>>),
 }
 
 impl Component for PostPreview {
@@ -57,11 +57,11 @@ impl Component for PostPreview {
                 };
                 send_future(self.link.clone(), future);
                 false
-            },
+            }
             Msg::ReceiveViewResponse(info) => {
                 self.fetch = info;
                 true
-            },
+            }
             Msg::GetInfo(user) => {
                 let future = async move {
                     match get_info_by_pk(user).await {
@@ -73,7 +73,7 @@ impl Component for PostPreview {
                 };
                 send_future(self.link.clone(), future);
                 false
-            },
+            }
             Msg::ReceiveInfoResponse(info) => {
                 self.fetch_info = info;
                 true
@@ -94,27 +94,27 @@ impl Component for PostPreview {
         } else {
             None
         };
-        let user =  if let Some(resp) = info.clone() {
+        let user = if let Some(resp) = info.clone() {
             if let Some(post) = resp.post {
-            if let FetchState::NotFetching = self.fetch_info.clone() {
-                self.link.send_message(Msg::GetInfo(post.author));
-                None
-            } else if let FetchState::Success(res) = self.fetch_info.clone() {
-                res.body
+                if let FetchState::NotFetching = self.fetch_info.clone() {
+                    self.link.send_message(Msg::GetInfo(post.author));
+                    None
+                } else if let FetchState::Success(res) = self.fetch_info.clone() {
+                    res.body
+                } else {
+                    None
+                }
             } else {
                 None
             }
         } else {
             None
-        }
-    } else {
-        None
-    };
+        };
         if let Some(resp) = info {
             if let Some(post) = resp.post {
                 let mut tags = String::new();
                 for i in 0..post.tags.len() {
-                    tags.push_str(&format!("#{}", post.tags[i]));
+                    tags.push_str(&format!("#{}", post.tags[i].to_uppercase()));
                     if i != post.tags.len() - 1 {
                         tags.push_str(", ");
                     }

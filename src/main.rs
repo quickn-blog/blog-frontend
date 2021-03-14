@@ -204,6 +204,7 @@ impl Root {
             router::MainRoute::Register => html! { <pages::register::RegisterPage/> },
             router::MainRoute::NewPost => html! { <pages::new_post::NewPostPage/> },
             router::MainRoute::ViewPost(id) => html! { <pages::view_post::ViewPost id=id/> },
+            router::MainRoute::EditPost(id) => html! { <pages::edit_post::EditPost id=id/> },
             _ => html! {{"test"}},
         }
     }

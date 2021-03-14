@@ -53,6 +53,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "chrono-tz",
+ "katex-wasmbind",
  "log",
  "pulldown-cmark",
  "reqwest",
@@ -440,6 +441,17 @@ version = "0.3.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc9f84f9b115ce7843d60706df1422a916680bfdfcbdb0447c5614ff9d7e4d78"
 dependencies = [
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "katex-wasmbind"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5913af0734c89a0b0ad6ac67071c928ac0f848100e018bd9fe526ce995c02d30"
+dependencies = [
+ "serde",
+ "serde_derive",
  "wasm-bindgen",
 ]
 

@@ -13,16 +13,17 @@ use yew_material::{MatButton, MatFormfield, MatSnackbar, MatTextField, WeakCompo
 use yew_router::agent::RouteRequest;
 use yew_router::prelude::*;
 
-pub struct NewPostPage {
+pub struct EditPost {
+    props: Props,
     link: ComponentLink<Self>,
-    //root_link: ComponentLink<crate::Root>,
     title: String,
     body: String,
     tags: String,
     error_link: WeakComponentLink<MatSnackbar>,
     error_msg: BlogError,
-    fetch_new_post: FetchState<ResponseBlock<NewPostResponse>>,
+    fetch_edit_post: FetchState<ResponseBlock<EditPostResponse>>,
     fetch_info: FetchState<ResponseBlock<InfoResponse>>,
+    fetch_view_post: FetchState<ResponseBlock<ViewPostResponse>>,
 }
 
 pub enum Msg {
@@ -30,37 +31,37 @@ pub enum Msg {
     UpdateBody(InputData),
     UpdateTags(InputData),
     GetInfo,
-    GetNewPost,
-    ReceiveNewPostResponse(FetchState<ResponseBlock<NewPostResponse>>),
+    GetViewPost,
+    GetEditPost,
+    ReceiveEditPostResponse(FetchState<ResponseBlock<EditPostResponse>>),
     ReceiveInfoResponse(FetchState<ResponseBlock<InfoResponse>>),
+    ReceiveViewPostResponse(FetchState<ResponseBlock<ViewPostResponse>>),
     ShowError,
-    GoMain,
     GoLogin,
+    GoPost,
 }
 
 #[derive(Properties, Clone)]
-pub struct Props {}
+pub struct Props {
+    pub id: i64,
+}
 
-impl Component for NewPostPage {
+impl Component for EditPost {
     type Message = Msg;
     type Properties = Props;
 
-    fn create(_props: Props, link: ComponentLink<Self>) -> Self {
-        //let mut any = link.get_parent().unwrap();
-        //while let Some(l) = any.get_parent() {
-        //    any = l;
-        //}
-        //let root_link: ComponentLink<crate::Root> = any.clone().downcast();
+    fn create(props: Props, link: ComponentLink<Self>) -> Self {
         Self {
+            props,
             link,
-            //root_link,
             title: String::new(),
             body: String::new(),
             tags: String::new(),
             error_link: WeakComponentLink::default(),
             error_msg: BlogError::Nothing,
-            fetch_new_post: FetchState::NotFetching,
+            fetch_edit_post: FetchState::NotFetching,
             fetch_info: FetchState::NotFetching,
+            fetch_view_post: FetchState::NotFetching,
         }
     }
 
@@ -78,7 +79,7 @@ impl Component for NewPostPage {
                 self.tags = s.value;
                 false
             }
-            Msg::GetNewPost => {
+            Msg::GetEditPost => {
                 if self.title.len() == 0 {
                     self.error_msg = BlogError::TooShortTitle;
                     true
@@ -91,15 +92,16 @@ impl Component for NewPostPage {
                 } else {
                     let t = self.tags.replace(" ", "");
                     let tags_vec: Vec<String> = t.split(",").map(|s| s.to_string()).collect();
-                    let form = NewPostForm {
+                    let form = EditPostForm {
+                        pk: self.props.id,
                         title: self.title.clone(),
                         body: self.body.clone(),
                         tag: tags_vec,
                     };
                     let future = async move {
-                        match new_post(form).await {
-                            Ok(info) => Msg::ReceiveNewPostResponse(FetchState::Success(info)),
-                            Err(_) => Msg::ReceiveNewPostResponse(FetchState::Failed(
+                        match edit_post(form).await {
+                            Ok(info) => Msg::ReceiveEditPostResponse(FetchState::Success(info)),
+                            Err(_) => Msg::ReceiveEditPostResponse(FetchState::Failed(
                                 FetchError::from(JsValue::FALSE),
                             )),
                         }
@@ -120,11 +122,25 @@ impl Component for NewPostPage {
                 send_future(self.link.clone(), future);
                 false
             }
+            Msg::GetViewPost => {
+                let id = self.props.id;
+                self.fetch_view_post = FetchState::Fetching;
+                let future = async move {
+                    match view_post(id).await {
+                        Ok(info) => Msg::ReceiveViewPostResponse(FetchState::Success(info)),
+                        Err(_) => Msg::ReceiveViewPostResponse(FetchState::Failed(FetchError::from(
+                            JsValue::FALSE,
+                        ))),
+                    }
+                };
+                send_future(self.link.clone(), future);
+                false
+            },
             Msg::ReceiveInfoResponse(data) => {
                 self.fetch_info = data;
                 true
             }
-            Msg::ReceiveNewPostResponse(data) => {
+            Msg::ReceiveEditPostResponse(data) => {
                 if let FetchState::Success(resp) = data.clone() {
                     if let Some(body) = resp.body {
                         match body.error {
@@ -137,16 +153,29 @@ impl Component for NewPostPage {
                         self.error_msg = BlogError::NetworkError;
                     }
                 }
-                self.fetch_new_post = data;
+                self.fetch_edit_post = data;
+                true
+            }
+            Msg::ReceiveViewPostResponse(data) => {
+                self.fetch_view_post = data.clone();
+                if let FetchState::Success(post) = data {
+                    if let Some(body) = post.body {
+                        if let Some(p) = body.post {
+                            self.title = p.title;
+                            self.body = p.body;
+                            self.tags = p.tags.join(",");
+                        }
+                    }
+                }
                 true
             }
             Msg::ShowError => {
                 self.error_link.show();
                 false
             }
-            Msg::GoMain => {
+            Msg::GoPost => {
                 let mut router = RouteAgentDispatcher::<()>::new();
-                let route = Route::from(router::MainRoute::Main);
+                let route = Route::from(router::MainRoute::ViewPost(self.props.id));
                 router.send(RouteRequest::ChangeRoute(route));
                 false
             }
@@ -165,18 +194,39 @@ impl Component for NewPostPage {
     }
 
     fn view(&self) -> Html {
+        let post = if let FetchState::NotFetching = self.fetch_view_post.clone() {
+            self.link.send_message(Msg::GetViewPost);
+            None
+        } else if let FetchState::Success(post) = self.fetch_view_post.clone() {
+            if let Some(body) = post.body {
+                body.post
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         if let FetchState::Success(r) = self.fetch_info.clone() {
             if !r.status {
                 self.link.send_message(Msg::GoLogin);
             }
+            if let Some(body) = post.clone() {
+                if let Some(user) = r.body {
+                    if body.author != user.pk as i32 {
+                        self.link.send_message(Msg::GoLogin);
+                    }
+                } else {
+                    self.link.send_message(Msg::GoLogin);
+                }
+            }
         } else if let FetchState::NotFetching = self.fetch_info.clone() {
             self.link.send_message(Msg::GetInfo);
         }
-        if let FetchState::Success(resp) = self.fetch_new_post.clone() {
+        if let FetchState::Success(resp) = self.fetch_edit_post.clone() {
             if let Some(body) = resp.body {
                 match body.error {
                     BlogError::Nothing => {
-                        self.link.send_message(Msg::GoMain);
+                        self.link.send_message(Msg::GoPost);
                     }
                     _ => {}
                 }
@@ -187,10 +237,10 @@ impl Component for NewPostPage {
         }
         html! {
             <div class="container">
-                <MatSnackbar label_text=&format!("Failed to create post: {}", self.error_msg) snackbar_link=self.error_link.clone()/>
+                <MatSnackbar label_text=&format!("Failed to modify post: {}", self.error_msg) snackbar_link=self.error_link.clone()/>
                 <div class="form-fill">
                     <div class="field">
-                        <h3>{"New post to blog"}</h3>
+                        <h3>{"Edit a post"}</h3>
                     </div>
                     <div class="field">
                         <MatTextField required=true fullwidth=true outlined=true label="Title" value=self.title.clone() oninput=self.link.callback(|s| Msg::UpdateTitle(s))/>
@@ -202,7 +252,7 @@ impl Component for NewPostPage {
                         <MatTextField fullwidth=true outlined=true label="Tags" value=self.tags.clone() oninput=self.link.callback(|s| Msg::UpdateTags(s))/>
                     </div>
                     <div class="field">
-                        <div onclick=self.link.callback(|_| Msg::GetNewPost)><MatButton label="Sumbit" raised=true/></div>
+                        <div onclick=self.link.callback(|_| Msg::GetEditPost)><MatButton label="Sumbit" raised=true/></div>
                     </div>
                 </div>
             </div>

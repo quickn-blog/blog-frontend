@@ -7,6 +7,7 @@ use std::future::Future;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
+use crate::constants::*;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FetchError {
@@ -95,8 +96,9 @@ pub struct ResponseBlock<T> {
     pub body: Option<T>,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct InfoResponse {
+    pub pk: i64,
     pub username: String,
     pub nickname: String,
     pub email: String,
@@ -123,6 +125,9 @@ pub enum BlogError {
     DatabaseError,
     NetworkError,
     PermissionError,
+    TooShortTitle,
+    TooShortBody,
+    InvalidTags,
 }
 
 impl fmt::Display for BlogError {
@@ -132,6 +137,9 @@ impl fmt::Display for BlogError {
             BlogError::NetworkError => write!(f, "Some network error occurs."),
             BlogError::DatabaseError => write!(f, "Some database error occurs."),
             BlogError::PermissionError => write!(f, "You have not permission."),
+            BlogError::TooShortBody => write!(f, "Too short body length."),
+            BlogError::TooShortTitle => write!(f, "Too short title length."),
+            BlogError::InvalidTags => write!(f, "Tags must be in ascii area."),
             _ => write!(f, "Nothing."),
         }
     }
@@ -180,6 +188,35 @@ pub struct PublicPost {
 pub struct ViewPostResponse {
     pub error: BlogError,
     pub post: Option<PublicPost>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+pub struct DeletePostForm {
+    pub id: i64,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct DeletePostResponse {
+    pub error: BlogError,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct RecentPostsResponse {
+    pub error: BlogError,
+    pub posts: Vec<i64>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
+pub struct EditPostForm {
+    pub pk: i64,
+    pub title: String,
+    pub body: String,
+    pub tag: Vec<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct EditPostResponse {
+    pub error: BlogError,
 }
 
 pub fn send_future<COMP: Component, F>(link: ComponentLink<COMP>, future: F)
@@ -257,6 +294,17 @@ pub async fn get_post_counts() -> Result<ResponseBlock<CountPostsResponse>, anyh
     Ok(info)
 }
 
+pub async fn recent_posts() -> Result<ResponseBlock<RecentPostsResponse>, anyhow::Error> {
+    let client = reqwest::Client::new();
+    let res = client
+        .get(&format!("http://localhost/api/blog/recent_posts?count={}", MAX_NUMBER_OF_POSTS_PREVIEW))
+        .send()
+        .await?;
+    let text = res.text().await?;
+    let info: ResponseBlock<RecentPostsResponse> = serde_json::from_str(&text).unwrap();
+    Ok(info)
+}
+
 pub async fn view_post(id: i64) -> Result<ResponseBlock<ViewPostResponse>, anyhow::Error> {
     let cookie = CookieService::new();
     let client = reqwest::Client::new();
@@ -288,5 +336,39 @@ pub async fn new_post(block: NewPostForm) -> Result<ResponseBlock<NewPostRespons
         .await?;
     let text = res.text().await?;
     let info: ResponseBlock<NewPostResponse> = serde_json::from_str(&text).unwrap();
+    Ok(info)
+}
+
+pub async fn edit_post(block: EditPostForm) -> Result<ResponseBlock<EditPostResponse>, anyhow::Error> {
+    let cookie = CookieService::new();
+    let client = reqwest::Client::new();
+    let form = AsRequest {
+        token: cookie.get("token").unwrap_or(String::new()),
+        body: block,
+    };
+    let res = client
+        .post("http://localhost/api/blog/edit_post")
+        .json(&form)
+        .send()
+        .await?;
+    let text = res.text().await?;
+    let info: ResponseBlock<EditPostResponse> = serde_json::from_str(&text).unwrap();
+    Ok(info)
+}
+
+pub async fn delete_post(id: i64) -> Result<ResponseBlock<DeletePostResponse>, anyhow::Error> {
+    let cookie = CookieService::new();
+    let client = reqwest::Client::new();
+    let form = AsRequest {
+        token: cookie.get("token").unwrap_or(String::new()),
+        body: DeletePostForm { id },
+    };
+    let res = client
+        .post("http://localhost/api/blog/delete_post")
+        .json(&form)
+        .send()
+        .await?;
+    let text = res.text().await?;
+    let info: ResponseBlock<DeletePostResponse> = serde_json::from_str(&text).unwrap();
     Ok(info)
 }

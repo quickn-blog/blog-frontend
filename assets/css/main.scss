@@ -92,3 +92,9 @@ body {
         color: white;
     }
 }
+
+.button-grid {
+    display: flex;
+    gap: 1em;
+    align-items: center;
+}

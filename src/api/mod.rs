@@ -247,7 +247,10 @@ where
 pub async fn login(form: LoginForm) -> Result<ResponseBlock<LoginResponse>, anyhow::Error> {
     let client = reqwest::Client::new();
     let res = client
-        .post(&format!("http://{}/api/account_service/login", host().unwrap()))
+        .post(&format!(
+            "http://{}/api/account_service/login",
+            host().unwrap()
+        ))
         .json(&form)
         .send()
         .await?;
@@ -261,7 +264,10 @@ pub async fn register(
 ) -> Result<ResponseBlock<RegisterResponse>, anyhow::Error> {
     let client = reqwest::Client::new();
     let res = client
-        .post(&format!("http://{}/api/account_service/register", host().unwrap()))
+        .post(&format!(
+            "http://{}/api/account_service/register",
+            host().unwrap()
+        ))
         .json(&form)
         .send()
         .await?;
@@ -333,7 +339,8 @@ pub async fn posts(start: i64, count: i64) -> Result<ResponseBlock<PostsResponse
         .get(&format!(
             "http://{}/api/blog/posts?start={}&count={}",
             host().unwrap(),
-            start, count,
+            start,
+            count,
         ))
         .send()
         .await?;

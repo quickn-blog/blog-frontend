@@ -8,6 +8,7 @@ use std::future::Future;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
+use yew::utils::host;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FetchError {
@@ -246,7 +247,7 @@ where
 pub async fn login(form: LoginForm) -> Result<ResponseBlock<LoginResponse>, anyhow::Error> {
     let client = reqwest::Client::new();
     let res = client
-        .post("http://localhost/api/account_service/login")
+        .post(&format!("http://{}/api/account_service/login", host().unwrap()))
         .json(&form)
         .send()
         .await?;
@@ -260,7 +261,7 @@ pub async fn register(
 ) -> Result<ResponseBlock<RegisterResponse>, anyhow::Error> {
     let client = reqwest::Client::new();
     let res = client
-        .post("http://localhost/api/account_service/register")
+        .post(&format!("http://{}/api/account_service/register", host().unwrap()))
         .json(&form)
         .send()
         .await?;
@@ -274,7 +275,8 @@ pub async fn get_info() -> Result<ResponseBlock<InfoResponse>, anyhow::Error> {
     let client = reqwest::Client::new();
     let res = client
         .get(&format!(
-            "http://localhost/api/account_service/info?token={}",
+            "http://{}/api/account_service/info?token={}",
+            host().unwrap(),
             cookie.get("token").unwrap_or(String::new())
         ))
         .send()
@@ -288,7 +290,8 @@ pub async fn get_info_by_pk(pk: i32) -> Result<ResponseBlock<InfoResponse>, anyh
     let client = reqwest::Client::new();
     let res = client
         .get(&format!(
-            "http://localhost/api/account_service/get_user?pk={}",
+            "http://{}/api/account_service/get_user?pk={}",
+            host().unwrap(),
             pk
         ))
         .send()
@@ -301,7 +304,7 @@ pub async fn get_info_by_pk(pk: i32) -> Result<ResponseBlock<InfoResponse>, anyh
 pub async fn get_post_counts() -> Result<ResponseBlock<CountPostsResponse>, anyhow::Error> {
     let client = reqwest::Client::new();
     let res = client
-        .get("http://localhost/api/blog/count_posts")
+        .get(&format!("http://{}/api/blog/count_posts", host().unwrap()))
         .send()
         .await?;
     let text = res.text().await?;
@@ -313,7 +316,8 @@ pub async fn recent_posts() -> Result<ResponseBlock<RecentPostsResponse>, anyhow
     let client = reqwest::Client::new();
     let res = client
         .get(&format!(
-            "http://localhost/api/blog/recent_posts?count={}",
+            "http://{}/api/blog/recent_posts?count={}",
+            host().unwrap(),
             MAX_NUMBER_OF_POSTS_PREVIEW
         ))
         .send()
@@ -327,7 +331,8 @@ pub async fn posts(start: i64, count: i64) -> Result<ResponseBlock<PostsResponse
     let client = reqwest::Client::new();
     let res = client
         .get(&format!(
-            "http://localhost/api/blog/posts?start={}&count={}",
+            "http://{}/api/blog/posts?start={}&count={}",
+            host().unwrap(),
             start, count,
         ))
         .send()
@@ -345,7 +350,7 @@ pub async fn view_post(id: i64) -> Result<ResponseBlock<ViewPostResponse>, anyho
         body: ViewPostForm { id },
     };
     let res = client
-        .post("http://localhost/api/blog/view_post")
+        .post(&format!("http://{}/api/blog/view_post", host().unwrap()))
         .json(&form)
         .send()
         .await?;
@@ -362,7 +367,7 @@ pub async fn new_post(block: NewPostForm) -> Result<ResponseBlock<NewPostRespons
         body: block,
     };
     let res = client
-        .post("http://localhost/api/blog/new_post")
+        .post(&format!("http://{}/api/blog/new_post", host().unwrap()))
         .json(&form)
         .send()
         .await?;
@@ -381,7 +386,7 @@ pub async fn edit_post(
         body: block,
     };
     let res = client
-        .post("http://localhost/api/blog/edit_post")
+        .post(&format!("http://{}/api/blog/edit_post", host().unwrap()))
         .json(&form)
         .send()
         .await?;
@@ -398,7 +403,7 @@ pub async fn delete_post(id: i64) -> Result<ResponseBlock<DeletePostResponse>, a
         body: DeletePostForm { id },
     };
     let res = client
-        .post("http://localhost/api/blog/delete_post")
+        .post(&format!("http://{}/api/blog/delete_post", host().unwrap()))
         .json(&form)
         .send()
         .await?;

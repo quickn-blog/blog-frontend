@@ -117,18 +117,18 @@ impl Component for Root {
     }
 
     fn view(&self) -> Html {
-        let (is_logined, nickname) = if let FetchState::Success(data) = self.fetch_task.clone() {
+        let (is_logined, nickname, level) = if let FetchState::Success(data) = self.fetch_task.clone() {
             if let Some(body) = data.body {
-                (data.status, body.nickname)
+                (data.status, body.nickname, body.level)
             } else {
-                (false, String::new())
+                (false, String::new(), AccountLevel::Default)
             }
         } else {
             match self.fetch_task {
                 FetchState::NotFetching => self.link.send_message(Msg::GetInfo),
                 _ => {}
             }
-            (false, String::new())
+            (false, String::new(), AccountLevel::Default)
         };
         html! {
             <MatDrawer open=self.is_opened drawer_type="modal" onopened=self.link.callback(|_| Msg::GetOpen) onclosed=self.link.callback(|_| Msg::GetClose)>
@@ -192,7 +192,13 @@ impl Component for Root {
                     <main id="router-outlet">
                         <router::MainRouter render=router::MainRouter::render(Self::switch)/>
                     </main>
-                    <div style="text-align: right; position: absolute; bottom: 1rem; right: 1rem;"><router::MainRouterAnchor route=router::MainRoute::Editor(-1)><MatFab icon="edit" /></router::MainRouterAnchor></div>
+                    {
+                        if level == AccountLevel::Admin {
+                            html! { <div style="text-align: right; position: absolute; bottom: 1rem; right: 1rem;"><router::MainRouterAnchor route=router::MainRoute::Editor(-1)><MatFab icon="edit" /></router::MainRouterAnchor></div> }
+                        } else {
+                            html! {}
+                        }
+                    }
                 </MatDrawerAppContent>
             </MatDrawer>
         }

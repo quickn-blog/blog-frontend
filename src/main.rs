@@ -33,7 +33,7 @@ use yew_material::drawer::*;
 use yew_material::list::*;
 use yew_material::text_inputs::*;
 use yew_material::top_app_bar_fixed::*;
-use yew_material::{MatButton, MatIcon, MatIconButton, MatList, MatTopAppBarFixed};
+use yew_material::{MatButton, MatFab, MatIcon, MatIconButton, MatList, MatTopAppBarFixed};
 use yew_services::fetch::{FetchOptions, FetchService, FetchTask, Mode, Request, Response};
 
 struct Root {
@@ -146,6 +146,8 @@ impl Component for Root {
                     <div class="navigate-menu">
                         <MatList>
                             <router::MainRouterAnchor route=router::MainRoute::Main><MatListItem graphic=GraphicType::Icon>{"Home"}<mwc-icon slot="graphic">{"home"}</mwc-icon></MatListItem></router::MainRouterAnchor>
+                            <router::MainRouterAnchor route=router::MainRoute::ListPosts><MatListItem graphic=GraphicType::Icon>{"Posts"}<mwc-icon slot="graphic">{"assignment"}</mwc-icon></MatListItem></router::MainRouterAnchor>
+                            <router::MainRouterAnchor route=router::MainRoute::About><MatListItem graphic=GraphicType::Icon>{"About"}<mwc-icon slot="graphic">{"help"}</mwc-icon></MatListItem></router::MainRouterAnchor>
                             <li divider=true></li>
                             {
                                 if is_logined {
@@ -176,8 +178,8 @@ impl Component for Root {
                             {"ANEP Research"}
                         </MatTopAppBarTitle>
                         <MatTopAppBarActionItems>
-                            <MatTextField value=self.search_text.clone() placeholder="Search.." icon="search" oninput=self.link.callback(|data| Msg::UpdateSearchText(data))/>
-                            <div class="fix-link"><router::MainRouterAnchor route=router::MainRoute::NewPost><MatIconButton icon="add_circle"/></router::MainRouterAnchor></div>
+                            //<MatTextField value=self.search_text.clone() placeholder="Search.." icon="search" oninput=self.link.callback(|data| Msg::UpdateSearchText(data))/>
+                            //<div class="fix-link"><router::MainRouterAnchor route=router::MainRoute::NewPost><MatIconButton icon="add_circle"/></router::MainRouterAnchor></div>
                             {
                                 if is_logined {
                                     html! { <div class="fix-link"><span onclick=self.link.callback(|_| Msg::GetLogout)><MatIconButton icon="logout"/></span></div> }
@@ -190,6 +192,7 @@ impl Component for Root {
                     <main id="router-outlet">
                         <router::MainRouter render=router::MainRouter::render(Self::switch)/>
                     </main>
+                    <div style="text-align: right; position: absolute; bottom: 1rem; right: 1rem;"><router::MainRouterAnchor route=router::MainRoute::Editor(-1)><MatFab icon="edit" /></router::MainRouterAnchor></div>
                 </MatDrawerAppContent>
             </MatDrawer>
         }
@@ -202,10 +205,12 @@ impl Root {
             router::MainRoute::Main => html! { <pages::main::Main/> },
             router::MainRoute::Login => html! { <pages::login::LoginPage/> },
             router::MainRoute::Register => html! { <pages::register::RegisterPage/> },
-            router::MainRoute::NewPost => html! { <pages::new_post::NewPostPage/> },
             router::MainRoute::ViewPost(id) => html! { <pages::view_post::ViewPost id=id/> },
-            router::MainRoute::EditPost(id) => html! { <pages::edit_post::EditPost id=id/> },
-            _ => html! {{"test"}},
+            router::MainRoute::Editor(id) => html! { <pages::editor::EditorPage id=id/> },
+            router::MainRoute::ListPosts => html! { <pages::list_posts::ListPostsPage/> },
+            router::MainRoute::Dashboard => html! { <pages::dashboard::DashboardPage/> },
+            router::MainRoute::About => html! { <pages::about::AboutPage/> },
+            _ => html! { <pages::not_found_page::NotFoundPage/> },
         }
     }
 }

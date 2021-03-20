@@ -3,6 +3,7 @@ use yew::prelude::*;
 use crate::api::*;
 use crate::constants::*;
 use crate::pages::post_preview::PostPreview;
+use crate::services::router;
 use std::cmp::min;
 use wasm_bindgen::prelude::*;
 use yew_material::list::*;
@@ -64,8 +65,7 @@ impl Component for Main {
         }
         if let FetchState::Success(resp) = self.fetch.clone() {
             if let Some(body) = resp.body {
-                let mut list = body.posts;
-                list.reverse();
+                let list = body.posts;
                 html! {
                     <>
                     <h2>{"Recent posts"}</h2>
@@ -84,7 +84,7 @@ impl Component for Main {
                     }
                     <div class="container">
                     <div class="top-padding">
-                        <MatButton raised=true label="More..."/>
+                        <router::MainRouterAnchor route=router::MainRoute::ListPosts><MatButton raised=true label="More..."/></router::MainRouterAnchor>
                     </div>
                     </div>
                     </>

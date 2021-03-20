@@ -1300,7 +1300,7 @@ dependencies = [
 [[package]]
 name = "yew-material"
 version = "0.1.0"
-source = "git+https://github.com/quickn-blog/yew-material?branch=master#eab716b5ce8603724b38bdaf48dfeecc941bdfdf"
+source = "git+https://github.com/quickn-blog/yew-material?branch=master#735281722bd2e78a9c0f42a5a0ab62cad1b90674"
 dependencies = [
  "gloo",
  "js-sys",

@@ -13,10 +13,12 @@ pub enum MainRoute {
     Dashboard,
     #[to = "/view_post/{id}"]
     ViewPost(i64),
-    #[to = "/edit_post/{id}"]
-    EditPost(i64),
-    #[to = "/new_post"]
-    NewPost,
+    #[to = "/editor/{id}"]
+    Editor(i64),
+    #[to = "/about"]
+    About,
+    #[to = "/list"]
+    ListPosts,
     #[to = "/"]
     Main,
 }

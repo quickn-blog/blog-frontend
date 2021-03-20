@@ -1,3 +1,4 @@
 dist
 caddy
 /target
+.DS_Store

@@ -185,9 +185,24 @@ pub struct PublicPost {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+pub struct PostHeader {
+    pub id: i32,
+    pub title: String,
+    pub author: i32,
+    pub created_at: NaiveDateTime,
+    pub modified_at: NaiveDateTime,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ViewPostResponse {
     pub error: BlogError,
     pub post: Option<PublicPost>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct PostsResponse {
+    pub error: BlogError,
+    pub posts: Vec<PostHeader>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
@@ -305,6 +320,20 @@ pub async fn recent_posts() -> Result<ResponseBlock<RecentPostsResponse>, anyhow
         .await?;
     let text = res.text().await?;
     let info: ResponseBlock<RecentPostsResponse> = serde_json::from_str(&text).unwrap();
+    Ok(info)
+}
+
+pub async fn posts(start: i64, count: i64) -> Result<ResponseBlock<PostsResponse>, anyhow::Error> {
+    let client = reqwest::Client::new();
+    let res = client
+        .get(&format!(
+            "http://localhost/api/blog/posts?start={}&count={}",
+            start, count,
+        ))
+        .send()
+        .await?;
+    let text = res.text().await?;
+    let info: ResponseBlock<PostsResponse> = serde_json::from_str(&text).unwrap();
     Ok(info)
 }
 
